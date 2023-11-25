@@ -74,11 +74,11 @@ userRouter.post(
 
             const accessToken = await sign(
                 { user: userInfo },
-                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET'
+                process.env.JWT_ACCESS_TOKEN_SECRET
             );
             const refreshToken = await sign(
                 { user: userInfo },
-                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET'
+                process.env.JWT_REFRESH_TOKEN_SECRET
             );
 
             setCookie(context, 'refresh-token', refreshToken, {
