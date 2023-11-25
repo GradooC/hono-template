@@ -3,12 +3,15 @@ import { prisma } from '../db';
 import { zValidator } from '@hono/zod-validator';
 import { addPostJsonSchema } from './schemas/add-post-json';
 import { idParamSchema } from './schemas/id-param';
+import { JwtPayload } from '../types/jwt';
 
 const postRouter = new Hono();
 
 postRouter.get('/feed', async (context) => {
+    const { user }: JwtPayload = context.get('jwtPayload');
+
     const posts = await prisma.post.findMany({
-        where: { published: true },
+        where: { published: true, authorId: user.id },
         include: {
             author: {
                 select: {
@@ -24,6 +27,7 @@ postRouter.get('/feed', async (context) => {
 
 postRouter.get('/:id', zValidator('param', idParamSchema), async (context) => {
     const { id } = context.req.valid('param');
+
     const post = await prisma.post.findUnique({
         where: { id: Number(id) },
     });
@@ -32,12 +36,14 @@ postRouter.get('/:id', zValidator('param', idParamSchema), async (context) => {
 });
 
 postRouter.post('/', zValidator('json', addPostJsonSchema), async (context) => {
-    const { title, content, authorEmail } = context.req.valid('json');
+    const { user }: JwtPayload = context.get('jwtPayload');
+    const { title, content } = context.req.valid('json');
+
     const result = await prisma.post.create({
         data: {
             title,
             content,
-            author: { connect: { email: authorEmail } },
+            author: { connect: { email: user.email } },
         },
     });
 
@@ -48,7 +54,8 @@ postRouter.put(
     '/publish/:id',
     zValidator('param', idParamSchema),
     async (context) => {
-        const id = context.req.valid('param');
+        const { id } = context.req.valid('param');
+
         const post = await prisma.post.update({
             where: { id: Number(id) },
             data: { published: true },
@@ -63,6 +70,7 @@ postRouter.delete(
     zValidator('param', idParamSchema),
     async (context) => {
         const { id } = context.req.valid('param');
+
         const post = await prisma.post.delete({
             where: { id: Number(id) },
         });
