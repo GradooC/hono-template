@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
-import { setCookie } from 'hono/cookie';
-import { sign } from 'hono/jwt';
+import { getCookie, setCookie } from 'hono/cookie';
+import { sign, verify } from 'hono/jwt';
 import { prisma } from '../db';
 import { zValidator } from '@hono/zod-validator';
 import { signUpJsonSchema } from './schemas/sign-up-json';
 import { signInJsonSchema } from './schemas/sign-in-json';
+import { getExpirationTime } from '../common/lib/date';
+import { REFRESH_TOKEN_COOKIE_NAME } from '../common/constants/cookie';
 
 const userRouter = new Hono();
 
@@ -73,15 +75,16 @@ userRouter.post(
             const userInfo = { email: user.email, id: user.id };
 
             const accessToken = await sign(
-                { user: userInfo },
+                { user: userInfo, exp: getExpirationTime(1) },
                 process.env.JWT_ACCESS_TOKEN_SECRET
             );
+
             const refreshToken = await sign(
-                { user: userInfo },
+                { user: userInfo, exp: getExpirationTime(24) },
                 process.env.JWT_REFRESH_TOKEN_SECRET
             );
 
-            setCookie(context, 'refresh-token', refreshToken, {
+            setCookie(context, REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
                 httpOnly: true,
                 sameSite: 'Strict',
             });
@@ -95,5 +98,37 @@ userRouter.post(
         }
     }
 );
+
+userRouter.get('/refresh', async (context) => {
+    try {
+        const refreshToken = getCookie(context, REFRESH_TOKEN_COOKIE_NAME);
+
+        if (!refreshToken) {
+            return context.json({ message: 'Refresh token is missing' }, 401);
+        }
+
+        const decodedPayload = await verify(
+            refreshToken,
+            process.env.JWT_REFRESH_TOKEN_SECRET
+        );
+
+        const userInfo = decodedPayload.user;
+
+        const accessToken = await sign(
+            { user: userInfo, exp: getExpirationTime(1) },
+            process.env.JWT_ACCESS_TOKEN_SECRET
+        );
+
+        return context.json({
+            message: 'Token is refreshed successfully',
+            accessToken,
+        });
+    } catch (error) {
+        return context.json(
+            { message: 'Refresh token is invalid', error },
+            401
+        );
+    }
+});
 
 export { userRouter };
