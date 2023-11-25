@@ -1,12 +1,14 @@
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
-import { prisma } from '../db';
-import { zValidator } from '@hono/zod-validator';
-import { signUpJsonSchema } from './schemas/sign-up-json';
-import { signInJsonSchema } from './schemas/sign-in-json';
-import { getExpirationTime } from '../common/lib/date';
+
 import { REFRESH_TOKEN_COOKIE_NAME } from '../common/constants/cookie';
+import { getExpirationTime } from '../common/lib/date';
+import { prisma } from '../db';
+
+import { signInJsonSchema } from './schemas/sign-in-json';
+import { signUpJsonSchema } from './schemas/sign-up-json';
 
 const userRouter = new Hono();
 
@@ -31,12 +33,12 @@ userRouter.post(
                     message: 'User registered successfully',
                     user: user,
                 },
-                201
+                201,
             );
         } catch (error) {
             return context.json({ message: 'Error occured', error }, 500);
         }
-    }
+    },
 );
 
 userRouter.post(
@@ -54,13 +56,13 @@ userRouter.post(
                     {
                         message: 'Invalid username or password',
                     },
-                    400
+                    400,
                 );
             }
 
             const isPasswordValid = await Bun.password.verify(
                 password,
-                user.password
+                user.password,
             );
 
             if (!isPasswordValid) {
@@ -68,7 +70,7 @@ userRouter.post(
                     {
                         message: 'Invalid username or password',
                     },
-                    400
+                    400,
                 );
             }
 
@@ -76,12 +78,12 @@ userRouter.post(
 
             const accessToken = await sign(
                 { user: userInfo, exp: getExpirationTime(1) },
-                process.env.JWT_ACCESS_TOKEN_SECRET
+                process.env.JWT_ACCESS_TOKEN_SECRET,
             );
 
             const refreshToken = await sign(
                 { user: userInfo, exp: getExpirationTime(24) },
-                process.env.JWT_REFRESH_TOKEN_SECRET
+                process.env.JWT_REFRESH_TOKEN_SECRET,
             );
 
             setCookie(context, REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
@@ -96,7 +98,7 @@ userRouter.post(
         } catch (error) {
             return context.json({ message: 'Error occured', error }, 500);
         }
-    }
+    },
 );
 
 userRouter.get('/refresh', async (context) => {
@@ -109,14 +111,14 @@ userRouter.get('/refresh', async (context) => {
 
         const decodedPayload = await verify(
             refreshToken,
-            process.env.JWT_REFRESH_TOKEN_SECRET
+            process.env.JWT_REFRESH_TOKEN_SECRET,
         );
 
         const userInfo = decodedPayload.user;
 
         const accessToken = await sign(
             { user: userInfo, exp: getExpirationTime(1) },
-            process.env.JWT_ACCESS_TOKEN_SECRET
+            process.env.JWT_ACCESS_TOKEN_SECRET,
         );
 
         return context.json({
@@ -126,7 +128,7 @@ userRouter.get('/refresh', async (context) => {
     } catch (error) {
         return context.json(
             { message: 'Refresh token is invalid', error },
-            401
+            401,
         );
     }
 });

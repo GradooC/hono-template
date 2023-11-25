@@ -1,9 +1,11 @@
-import { Hono } from 'hono';
-import { prisma } from '../db';
 import { zValidator } from '@hono/zod-validator';
+import { Hono } from 'hono';
+
+import { prisma } from '../db';
+import { JwtPayload } from '../types/jwt';
+
 import { addPostJsonSchema } from './schemas/add-post-json';
 import { idParamSchema } from './schemas/id-param';
-import { JwtPayload } from '../types/jwt';
 
 const postRouter = new Hono();
 
@@ -62,7 +64,7 @@ postRouter.put(
         });
 
         return context.json(post);
-    }
+    },
 );
 
 postRouter.delete(
@@ -76,7 +78,7 @@ postRouter.delete(
         });
 
         return context.json(post);
-    }
+    },
 );
 
 export { postRouter };
