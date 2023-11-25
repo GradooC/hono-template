@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { setCookie } from 'hono/cookie';
-import { sign } from 'hono/jwt'
+import { sign } from 'hono/jwt';
 import { prisma } from '../db';
 import { zValidator } from '@hono/zod-validator';
 import { signUpJsonSchema } from './schemas/sign-up-json';
@@ -24,14 +24,15 @@ userRouter.post(
                 },
             });
 
-            context.status(201);
-            return context.json({
-                message: 'User registered successfully',
-                user: user,
-            });
+            return context.json(
+                {
+                    message: 'User registered successfully',
+                    user: user,
+                },
+                201
+            );
         } catch (error) {
-            context.status(500);
-            return context.json({ message: 'Error occured', error });
+            return context.json({ message: 'Error occured', error }, 500);
         }
     }
 );
@@ -47,30 +48,37 @@ userRouter.post(
             });
 
             if (!user) {
-                context.status(400);
-                return context.json({
-                    message: 'Invalid username or password',
-                });
+                return context.json(
+                    {
+                        message: 'Invalid username or password',
+                    },
+                    400
+                );
             }
 
-            const isPasswordValid = await Bun.password.verify(password, user.password);
+            const isPasswordValid = await Bun.password.verify(
+                password,
+                user.password
+            );
 
             if (!isPasswordValid) {
-                context.status(400);
-                return context.json({
-                    message: 'Invalid username or password',
-                });
+                return context.json(
+                    {
+                        message: 'Invalid username or password',
+                    },
+                    400
+                );
             }
 
             const userInfo = { email: user.email, id: user.id };
 
             const accessToken = await sign(
                 { user: userInfo },
-                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET',
+                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET'
             );
             const refreshToken = await sign(
                 { user: userInfo },
-                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET',
+                process.env.JWT_SECRET || 'DEFAULT_JWT_SECRET'
             );
 
             setCookie(context, 'refresh-token', refreshToken, {
@@ -83,8 +91,7 @@ userRouter.post(
                 accessToken,
             });
         } catch (error) {
-            context.status(500);
-            return context.json({ message: 'Error occured', error });
+            return context.json({ message: 'Error occured', error }, 500);
         }
     }
 );
