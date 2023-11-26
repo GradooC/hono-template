@@ -10,12 +10,11 @@ import { prisma } from '../db';
 import { signInJsonSchema } from './schemas/sign-in-json';
 import { signUpJsonSchema } from './schemas/sign-up-json';
 
-const userRouter = new Hono();
-
-userRouter.post(
-    '/sign-up',
-    zValidator('json', signUpJsonSchema),
-    async (context) => {
+export const userRouter = new Hono()
+    /**
+     * POST /sign-up
+     */
+    .post('/sign-up', zValidator('json', signUpJsonSchema), async (context) => {
         try {
             const { email, password, name } = context.req.valid('json');
             const hashedPassword = await Bun.password.hash(password);
@@ -28,7 +27,7 @@ userRouter.post(
                 },
             });
 
-            return context.json(
+            return context.jsonT(
                 {
                     message: 'User registered successfully',
                     user: user,
@@ -36,15 +35,13 @@ userRouter.post(
                 201,
             );
         } catch (error) {
-            return context.json({ message: 'Error occured', error }, 500);
+            return context.jsonT({ message: 'Error occured', error }, 500);
         }
-    },
-);
-
-userRouter.post(
-    '/sign-in',
-    zValidator('json', signInJsonSchema),
-    async (context) => {
+    })
+    /**
+     * POST /sign-in
+     */
+    .post('/sign-in', zValidator('json', signInJsonSchema), async (context) => {
         try {
             const { email, password } = context.req.valid('json');
             const user = await prisma.user.findUnique({
@@ -52,7 +49,7 @@ userRouter.post(
             });
 
             if (!user) {
-                return context.json(
+                return context.jsonT(
                     {
                         message: 'Invalid username or password',
                     },
@@ -66,7 +63,7 @@ userRouter.post(
             );
 
             if (!isPasswordValid) {
-                return context.json(
+                return context.jsonT(
                     {
                         message: 'Invalid username or password',
                     },
@@ -91,46 +88,48 @@ userRouter.post(
                 sameSite: 'Strict',
             });
 
-            return context.json({
+            return context.jsonT({
                 message: 'Logged in successfully',
                 accessToken,
             });
         } catch (error) {
-            return context.json({ message: 'Error occured', error }, 500);
+            return context.jsonT({ message: 'Error occured', error }, 500);
         }
-    },
-);
+    })
+    /**
+     * GET /refresh
+     */
+    .get('/refresh', async (context) => {
+        try {
+            const refreshToken = getCookie(context, REFRESH_TOKEN_COOKIE_NAME);
 
-userRouter.get('/refresh', async (context) => {
-    try {
-        const refreshToken = getCookie(context, REFRESH_TOKEN_COOKIE_NAME);
+            if (!refreshToken) {
+                return context.jsonT(
+                    { message: 'Refresh token is missing' },
+                    401,
+                );
+            }
 
-        if (!refreshToken) {
-            return context.json({ message: 'Refresh token is missing' }, 401);
+            const decodedPayload = await verify(
+                refreshToken,
+                process.env.JWT_REFRESH_TOKEN_SECRET,
+            );
+
+            const userInfo = decodedPayload.user;
+
+            const accessToken = await sign(
+                { user: userInfo, exp: getExpirationTime(1) },
+                process.env.JWT_ACCESS_TOKEN_SECRET,
+            );
+
+            return context.jsonT({
+                message: 'Token is refreshed successfully',
+                accessToken,
+            });
+        } catch (error) {
+            return context.jsonT(
+                { message: 'Refresh token is invalid', error },
+                401,
+            );
         }
-
-        const decodedPayload = await verify(
-            refreshToken,
-            process.env.JWT_REFRESH_TOKEN_SECRET,
-        );
-
-        const userInfo = decodedPayload.user;
-
-        const accessToken = await sign(
-            { user: userInfo, exp: getExpirationTime(1) },
-            process.env.JWT_ACCESS_TOKEN_SECRET,
-        );
-
-        return context.json({
-            message: 'Token is refreshed successfully',
-            accessToken,
-        });
-    } catch (error) {
-        return context.json(
-            { message: 'Refresh token is invalid', error },
-            401,
-        );
-    }
-});
-
-export { userRouter };
+    });

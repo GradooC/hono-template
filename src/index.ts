@@ -5,15 +5,12 @@ import { logger } from 'hono/logger';
 import { postRouter } from './post';
 import { userRouter } from './user';
 
-const app = new Hono();
+export type AppType = typeof app;
 
-app.use('*', logger());
-
-app.use('/post/*', jwt({ secret: process.env.JWT_ACCESS_TOKEN_SECRET }));
-app.route('/post', postRouter);
-
-app.route('/user', userRouter);
-
-app.notFound((context) => context.json({ message: 'Not Found' }, 404));
+const app = new Hono()
+    .use('*', logger())
+    .route('/user', userRouter)
+    .use('*', jwt({ secret: process.env.JWT_ACCESS_TOKEN_SECRET }))
+    .route('/post', postRouter);
 
 export default app;
