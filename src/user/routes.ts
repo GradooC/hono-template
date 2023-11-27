@@ -1,11 +1,13 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import { env } from 'hono/adapter';
 import { getCookie, setCookie } from 'hono/cookie';
 import { sign, verify } from 'hono/jwt';
 
 import { REFRESH_TOKEN_COOKIE_NAME } from '../common/constants/cookie';
 import { getExpirationTime } from '../common/lib/date';
 import { prisma } from '../db';
+import { Env } from '../types/env';
 
 import { signInJsonSchema } from './schemas/sign-in-json';
 import { signUpJsonSchema } from './schemas/sign-up-json';
@@ -44,6 +46,9 @@ export const userRouter = new Hono()
     .post('/sign-in', zValidator('json', signInJsonSchema), async (context) => {
         try {
             const { email, password } = context.req.valid('json');
+            const { JWT_ACCESS_TOKEN_SECRET, JWT_REFRESH_TOKEN_SECRET } =
+                env<Env>(context);
+
             const user = await prisma.user.findUnique({
                 where: { email },
             });
@@ -75,12 +80,12 @@ export const userRouter = new Hono()
 
             const accessToken = await sign(
                 { user: userInfo, exp: getExpirationTime(1) },
-                process.env.JWT_ACCESS_TOKEN_SECRET,
+                JWT_ACCESS_TOKEN_SECRET,
             );
 
             const refreshToken = await sign(
                 { user: userInfo, exp: getExpirationTime(24) },
-                process.env.JWT_REFRESH_TOKEN_SECRET,
+                JWT_REFRESH_TOKEN_SECRET,
             );
 
             setCookie(context, REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
@@ -102,6 +107,8 @@ export const userRouter = new Hono()
     .get('/refresh', async (context) => {
         try {
             const refreshToken = getCookie(context, REFRESH_TOKEN_COOKIE_NAME);
+            const { JWT_ACCESS_TOKEN_SECRET, JWT_REFRESH_TOKEN_SECRET } =
+                env<Env>(context);
 
             if (!refreshToken) {
                 return context.jsonT(
@@ -112,14 +119,14 @@ export const userRouter = new Hono()
 
             const decodedPayload = await verify(
                 refreshToken,
-                process.env.JWT_REFRESH_TOKEN_SECRET,
+                JWT_REFRESH_TOKEN_SECRET,
             );
 
             const userInfo = decodedPayload.user;
 
             const accessToken = await sign(
                 { user: userInfo, exp: getExpirationTime(1) },
-                process.env.JWT_ACCESS_TOKEN_SECRET,
+                JWT_ACCESS_TOKEN_SECRET,
             );
 
             return context.jsonT({
