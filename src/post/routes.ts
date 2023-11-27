@@ -35,10 +35,11 @@ export const postRouter = new Hono()
         '/publish/:id',
         zValidator('param', idParamSchema),
         async (context) => {
+            const { user }: JwtPayload = context.get('jwtPayload');
             const { id } = context.req.valid('param');
 
             const post = await prisma.post.update({
-                where: { id: Number(id) },
+                where: { id: Number(id), authorId: user.id },
                 data: { published: true },
             });
 
@@ -85,10 +86,11 @@ export const postRouter = new Hono()
      * DELETE /:id
      */
     .delete('/:id', zValidator('param', idParamSchema), async (context) => {
+        const { user }: JwtPayload = context.get('jwtPayload');
         const { id } = context.req.valid('param');
 
         const post = await prisma.post.delete({
-            where: { id: Number(id) },
+            where: { id: Number(id), authorId: user.id },
         });
 
         return context.jsonT(post);
